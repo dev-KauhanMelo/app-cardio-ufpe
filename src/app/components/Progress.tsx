@@ -1,32 +1,65 @@
+import { useEffect, useState } from 'react';
 import { ArrowLeft, Trophy, TrendingUp } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { BarChart, Bar, XAxis, ResponsiveContainer, Cell } from 'recharts';
 import BottomNav from './BottomNav';
+import { useAuth } from '../../lib/auth-context';
+import { getExercisesSince } from '../../lib/exercises';
+
+const WEEK_DAYS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+
+function startOfWeek(date: Date) {
+  const result = new Date(date);
+  const day = (result.getDay() + 6) % 7;
+  result.setDate(result.getDate() - day);
+  result.setHours(0, 0, 0, 0);
+  return result;
+}
 
 export default function Progress() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [data, setData] = useState(WEEK_DAYS.map((day) => ({ day, value: 0 })));
+  const [previousWeekTotal, setPreviousWeekTotal] = useState<number | null>(null);
+  const daysWithExercise = data.filter((d) => d.value > 0).length;
+  const weekTotal = data.reduce((sum, d) => sum + d.value, 0);
+  const evolutionPercent =
+    previousWeekTotal && previousWeekTotal > 0
+      ? Math.round(((weekTotal - previousWeekTotal) / previousWeekTotal) * 100)
+      : null;
 
-  const data = [
-    { day: 'Seg', value: 2 },
-    { day: 'Ter', value: 4 },
-    { day: 'Qua', value: 1 },
-    { day: 'Qui', value: 5 },
-    { day: 'Sex', value: 4 },
-    { day: 'Sáb', value: 0 },
-    { day: 'Dom', value: 0 },
-  ];
+  useEffect(() => {
+    if (!user) return;
+    const weekStart = startOfWeek(new Date());
+    const previousWeekStart = new Date(weekStart);
+    previousWeekStart.setDate(previousWeekStart.getDate() - 7);
+
+    getExercisesSince(user.uid, weekStart).then((entries) => {
+      const counts = Array(7).fill(0);
+      entries.forEach((entry) => {
+        const dayIndex = (entry.createdAt.getDay() + 6) % 7;
+        counts[dayIndex] += 1;
+      });
+      setData(WEEK_DAYS.map((day, index) => ({ day, value: counts[index] })));
+    });
+
+    getExercisesSince(user.uid, previousWeekStart).then((entries) => {
+      const lastWeekEntries = entries.filter((entry) => entry.createdAt < weekStart);
+      setPreviousWeekTotal(lastWeekEntries.length);
+    });
+  }, [user]);
 
   return (
-    <div className="h-full flex flex-col bg-[#F7F9FC]">
+    <div className="h-full flex flex-col bg-app-bg">
       {/* Header */}
       <div className="pt-12 pb-6 px-6">
         <button onClick={() => navigate('/dashboard')} className="p-2 -ml-2 mb-4">
-          <ArrowLeft size={24} className="text-[#1F2937]" />
+          <ArrowLeft size={26} className="text-ink" />
         </button>
-        <h1 className="text-[24px] font-bold text-[#1F2937] mb-4">
+        <h1 className="text-[26px] font-extrabold text-ink mb-4">
           Seu Progresso
         </h1>
-        <select className="w-full bg-white border border-[#E5E7EB] rounded-xl px-4 py-3 text-[14px] text-[#1F2937] focus:outline-none focus:ring-2 focus:ring-[#3B82F6]">
+        <select className="w-full h-14 bg-surface border border-border rounded-2xl px-4 text-[15px] text-ink focus:outline-none focus:ring-2 focus:ring-brand-light">
           <option>Esta semana</option>
           <option>Este mês</option>
           <option>Este ano</option>
@@ -36,14 +69,14 @@ export default function Progress() {
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto pb-24 px-6">
         {/* Chart */}
-        <div className="bg-white rounded-[24px] p-6 mb-4 shadow-sm">
+        <div className="bg-surface rounded-3xl p-6 mb-4 shadow-sm">
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={data}>
               <XAxis
                 dataKey="day"
                 axisLine={false}
                 tickLine={false}
-                tick={{ fill: '#6B7280', fontSize: 12 }}
+                tick={{ fill: '#6B7280', fontSize: 13 }}
               />
               <Bar dataKey="value" radius={[8, 8, 0, 0]}>
                 {data.map((entry, index) => (
@@ -58,19 +91,19 @@ export default function Progress() {
         </div>
 
         {/* Achievement Card */}
-        <div className="bg-[#FEF9C3] rounded-[24px] p-6 mb-4 shadow-sm">
+        <div className="bg-warning-soft rounded-3xl p-6 mb-4 shadow-sm">
           <div className="flex items-start gap-4">
-            <div className="w-12 h-12 bg-[#FACC15] rounded-full flex items-center justify-center">
+            <div className="w-12 h-12 bg-warning rounded-full flex items-center justify-center flex-shrink-0">
               <Trophy size={24} className="text-white" />
             </div>
             <div className="flex-1">
-              <p className="text-[14px] font-semibold text-[#1F2937] mb-2">
-                Você fez 4 de 5 exercícios esta semana! 🎉
+              <p className="text-[15px] font-semibold text-ink mb-2">
+                Você fez exercícios em {daysWithExercise} de 7 dias esta semana! 🎉
               </p>
-              <div className="h-2 bg-white rounded-full overflow-hidden">
+              <div className="h-2 bg-surface rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-[#22C55E] rounded-full"
-                  style={{ width: '80%' }}
+                  className="h-full bg-success rounded-full"
+                  style={{ width: `${Math.round((daysWithExercise / 7) * 100)}%` }}
                 ></div>
               </div>
             </div>
@@ -78,27 +111,40 @@ export default function Progress() {
         </div>
 
         {/* Evolution Card */}
-        <div className="bg-white rounded-[24px] p-6 mb-4 shadow-sm">
+        <div className="bg-surface rounded-3xl p-6 mb-4 shadow-sm">
           <div className="flex items-center gap-4">
             <div className="flex-1">
-              <div className="text-[32px] font-bold text-[#22C55E] mb-1">+15%</div>
-              <p className="text-[14px] text-[#6B7280]">melhor que semana passada</p>
+              <div
+                className="text-[32px] font-bold mb-1"
+                style={{ color: (evolutionPercent ?? 0) >= 0 ? '#22C55E' : '#EF4444' }}
+              >
+                {evolutionPercent === null
+                  ? '—'
+                  : `${evolutionPercent >= 0 ? '+' : ''}${evolutionPercent}%`}
+              </div>
+              <p className="text-[15px] text-muted-ink">
+                {evolutionPercent === null
+                  ? 'sem dados da semana passada'
+                  : evolutionPercent >= 0
+                    ? 'melhor que semana passada'
+                    : 'menos que semana passada'}
+              </p>
             </div>
-            <div className="w-16 h-16 bg-[#DCFCE7] rounded-full flex items-center justify-center">
-              <TrendingUp size={28} className="text-[#22C55E]" />
+            <div className="w-16 h-16 bg-success-soft rounded-full flex items-center justify-center flex-shrink-0">
+              <TrendingUp size={28} className="text-success" />
             </div>
           </div>
         </div>
 
         {/* Motivation Card */}
-        <div className="bg-[#F3F4F6] rounded-[24px] p-6 shadow-sm">
+        <div className="bg-surface rounded-3xl p-6 shadow-sm">
           <div className="flex items-start gap-3">
             <div className="text-2xl">🔥</div>
             <div>
-              <h3 className="text-[14px] font-semibold text-[#1F2937] mb-1">
+              <h3 className="text-[15px] font-semibold text-ink mb-1">
                 Frequência: Boa
               </h3>
-              <p className="text-[12px] text-[#6B7280]">
+              <p className="text-[13px] text-muted-ink">
                 Continue mantendo sua constância!
               </p>
             </div>

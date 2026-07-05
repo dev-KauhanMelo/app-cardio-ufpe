@@ -1,96 +1,173 @@
-import { Menu, Bell, ChevronRight } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { motion } from 'motion/react';
+import { Moon, Sun, ChevronRight } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import BottomNav from './BottomNav';
+import PlantWidget from './PlantWidget';
+import DailyChallenges from './DailyChallenges';
+import { useAuth } from '../../lib/auth-context';
+import { useTheme } from '../../lib/theme-context';
+import { getExercisesSince } from '../../lib/exercises';
+import {
+  completeChallenge,
+  getTodayChallenges,
+  getUserProfile,
+  type TodayChallenges,
+  type UserProfile,
+} from '../../lib/gamification';
+
+const WEEK_DAYS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+
+const TODAY_EXERCISES = [
+  { icon: '🚶', name: 'Caminhada leve', duration: '20 min', color: 'var(--color-walk)' },
+  { icon: '🫁', name: 'Exercício respiratório', duration: '10 min', color: 'var(--color-breath)' },
+  { icon: '🧘', name: 'Alongamento', duration: '10 min', color: 'var(--color-stretch)' },
+];
+
+function startOfWeek(date: Date) {
+  const result = new Date(date);
+  const day = (result.getDay() + 6) % 7; // 0 = Monday
+  result.setDate(result.getDate() - day);
+  result.setHours(0, 0, 0, 0);
+  return result;
+}
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const { theme, toggleTheme } = useTheme();
+  const [completedDays, setCompletedDays] = useState<boolean[]>(Array(7).fill(false));
+  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [challenges, setChallenges] = useState<TodayChallenges | null>(null);
+  const [completingChallenge, setCompletingChallenge] = useState(false);
 
-  const exercises = [
-    { icon: '🚶', name: 'Caminhada leve', duration: '20 min', color: '#22C55E' },
-    { icon: '🫁', name: 'Exercício respiratório', duration: '10 min', color: '#3B82F6' },
-    { icon: '🧘', name: 'Alongamento', duration: '10 min', color: '#A855F7' },
-  ];
+  const refreshGamification = async (uid: string) => {
+    const [p, c] = await Promise.all([getUserProfile(uid), getTodayChallenges(uid)]);
+    setProfile(p);
+    setChallenges(c);
+  };
 
-  const weekDays = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+  useEffect(() => {
+    if (!user) return;
+    const weekStart = startOfWeek(new Date());
+    getExercisesSince(user.uid, weekStart)
+      .then((entries) => {
+        const days = Array(7).fill(false);
+        entries.forEach((entry) => {
+          const dayIndex = (entry.createdAt.getDay() + 6) % 7;
+          days[dayIndex] = true;
+        });
+        setCompletedDays(days);
+      })
+      .finally(() => setLoading(false));
+
+    refreshGamification(user.uid);
+  }, [user]);
+
+  const handleCompleteNutrition = async (portions: number) => {
+    if (!user) return;
+    setCompletingChallenge(true);
+    try {
+      await completeChallenge(user.uid, 'nutrition', portions);
+      await refreshGamification(user.uid);
+    } finally {
+      setCompletingChallenge(false);
+    }
+  };
 
   return (
-    <div className="h-full flex flex-col bg-[#F7F9FC]">
+    <div className="h-full flex flex-col bg-app-bg">
       {/* Header */}
       <div className="pt-12 pb-6 px-6">
-        <div className="flex justify-between items-center mb-6">
-          <button className="p-2 -ml-2">
-            <Menu size={24} className="text-[#1F2937]" />
-          </button>
-          <button className="p-2 -mr-2 relative">
-            <Bell size={24} className="text-[#1F2937]" />
-            <div className="absolute top-1 right-1 w-2 h-2 bg-[#EF4444] rounded-full"></div>
+        <div className="flex justify-end items-center mb-4">
+          <button onClick={toggleTheme} className="p-2 -mr-2" aria-label="Alternar tema">
+            {theme === 'dark' ? <Sun size={24} className="text-ink" /> : <Moon size={24} className="text-ink" />}
           </button>
         </div>
-        <h1 className="text-[24px] font-bold text-[#1F2937] mb-1">
-          Olá, Gabriel 👋
+        <h1 className="text-[26px] font-extrabold text-ink mb-1">
+          Olá, {user?.displayName ?? 'tudo bem'}
         </h1>
-        <p className="text-[14px] text-[#6B7280]">
+        <p className="text-[15px] text-muted-ink">
           Como está sua recuperação hoje?
         </p>
       </div>
 
       {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto pb-24 px-6">
+      <div className="flex-1 overflow-y-auto pb-24 px-6 pt-4">
+        {profile && <PlantWidget profile={profile} />}
+        {challenges && (
+          <DailyChallenges
+            challenges={challenges}
+            onCompleteNutrition={handleCompleteNutrition}
+            completing={completingChallenge}
+          />
+        )}
+
         {/* Today's Exercises */}
-        <div className="bg-white rounded-[24px] p-6 mb-4 shadow-sm">
-          <h2 className="text-[16px] font-semibold text-[#1F2937] mb-4">
-            Hoje você tem:
-          </h2>
+        <div className="bg-surface rounded-3xl p-6 mb-4 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-[17px] font-bold text-ink">
+              Hoje você tem:
+            </h2>
+            <button
+              onClick={() => navigate('/exercises')}
+              className="text-[13px] font-semibold text-brand"
+            >
+              Ver biblioteca
+            </button>
+          </div>
           <div className="space-y-3">
-            {exercises.map((exercise, index) => (
-              <button
+            {TODAY_EXERCISES.map((exercise, index) => (
+              <motion.button
                 key={index}
+                whileTap={{ scale: 0.98 }}
                 onClick={() => navigate('/register')}
-                className="w-full flex items-center gap-4 p-3 rounded-xl hover:bg-[#F7F9FC] transition-colors"
+                className="w-full flex items-center gap-4 p-3 rounded-2xl hover:bg-app-bg transition-colors"
               >
                 <div
                   className="w-12 h-12 rounded-full flex items-center justify-center text-2xl"
-                  style={{ backgroundColor: `${exercise.color}20` }}
+                  style={{ backgroundColor: `color-mix(in srgb, ${exercise.color} 20%, transparent)` }}
                 >
                   {exercise.icon}
                 </div>
                 <div className="flex-1 text-left">
-                  <p className="text-[14px] font-medium text-[#1F2937]">
+                  <p className="text-[15px] font-medium text-ink">
                     {exercise.name}
                   </p>
-                  <p className="text-[12px] text-[#6B7280]">{exercise.duration}</p>
+                  <p className="text-[13px] text-muted-ink">{exercise.duration}</p>
                 </div>
-                <ChevronRight size={20} className="text-[#6B7280]" />
-              </button>
+                <ChevronRight size={20} className="text-muted-ink" />
+              </motion.button>
             ))}
           </div>
         </div>
 
         {/* Register Button */}
-        <button
+        <motion.button
+          whileTap={{ scale: 0.96 }}
           onClick={() => navigate('/register')}
-          className="w-full bg-[#3B82F6] text-white py-4 rounded-[18px] font-semibold text-[16px] mb-4 shadow-lg hover:bg-[#2563EB] transition-colors"
+          className="w-full h-14 bg-brand-light text-white rounded-2xl font-bold text-[17px] mb-4 shadow-lg hover:bg-brand transition-colors"
         >
           + Registrar Exercício
-        </button>
+        </motion.button>
 
         {/* Weekly Progress */}
-        <div className="bg-white rounded-[24px] p-6 mb-4 shadow-sm">
-          <h2 className="text-[16px] font-semibold text-[#1F2937] mb-4">
+        <div className="bg-surface rounded-3xl p-6 mb-4 shadow-sm">
+          <h2 className="text-[17px] font-bold text-ink mb-4">
             Progresso semanal
           </h2>
           <div className="flex justify-between gap-2">
-            {weekDays.map((day, index) => {
-              const isCompleted = index < 4;
+            {WEEK_DAYS.map((day, index) => {
+              const isCompleted = !loading && completedDays[index];
               return (
                 <div key={index} className="flex flex-col items-center gap-2 flex-1">
                   <div
-                    className="w-full h-2 rounded-full transition-colors"
-                    style={{
-                      backgroundColor: isCompleted ? '#22C55E' : '#E5E7EB',
-                    }}
+                    className={`w-full h-2 rounded-full transition-colors ${
+                      isCompleted ? 'bg-success' : 'bg-border'
+                    }`}
                   ></div>
-                  <span className="text-[12px] text-[#6B7280]">{day}</span>
+                  <span className="text-[13px] text-muted-ink">{day}</span>
                 </div>
               );
             })}
@@ -98,23 +175,24 @@ export default function Dashboard() {
         </div>
 
         {/* AI Card */}
-        <button
+        <motion.button
+          whileTap={{ scale: 0.98 }}
           onClick={() => navigate('/ai')}
-          className="w-full bg-[#DCFCE7] rounded-[24px] p-6 shadow-sm hover:bg-[#BBF7D0] transition-colors"
+          className="w-full bg-success-soft rounded-3xl p-6 shadow-sm transition-colors"
         >
           <div className="flex items-start gap-3">
             <div className="text-2xl">🤖</div>
             <div className="flex-1 text-left">
-              <h3 className="text-[14px] font-semibold text-[#1F2937] mb-1">
+              <h3 className="text-[15px] font-bold text-ink mb-1">
                 Mensagem da IA
               </h3>
-              <p className="text-[14px] text-[#1F2937]">
+              <p className="text-[15px] text-ink">
                 Você está indo bem! Continue assim 🔥
               </p>
             </div>
-            <ChevronRight size={20} className="text-[#1F2937]" />
+            <ChevronRight size={20} className="text-ink" />
           </div>
-        </button>
+        </motion.button>
       </div>
 
       {/* Bottom Navigation */}

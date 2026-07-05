@@ -3,18 +3,25 @@ import { ArrowLeft, Check } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
 import BottomNav from './BottomNav';
+import { useAuth } from '../../lib/auth-context';
+import { addHealthRecord } from '../../lib/health-records';
+import { completeChallenge } from '../../lib/gamification';
 
 export default function HealthRecord() {
   const navigate = useNavigate();
-  const [feeling, setFeeling] = useState<'bem' | 'normal' | 'cansado' | null>('normal');
+  const { user } = useAuth();
+  const [feeling, setFeeling] = useState<'bem' | 'normal' | 'cansado' | null>(null);
   const [symptoms, setSymptoms] = useState({
     chestPain: false,
-    breathlessness: true,
+    breathlessness: false,
     dizziness: false,
     other: false,
   });
-  const [notes, setNotes] = useState('Leve falta de ar durante o esforço.');
+  const [notes, setNotes] = useState('');
   const [showToast, setShowToast] = useState(false);
+  const [xpAwarded, setXpAwarded] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const feelings = [
     { value: 'bem', emoji: '😄', label: 'Bem', color: '#22C55E' },
@@ -22,21 +29,33 @@ export default function HealthRecord() {
     { value: 'cansado', emoji: '😓', label: 'Cansado', color: '#EF4444' },
   ];
 
-  const handleSave = () => {
-    setShowToast(true);
-    setTimeout(() => {
-      setShowToast(false);
-    }, 2000);
+  const handleSave = async () => {
+    if (!user || !feeling) return;
+    setError(null);
+    setSaving(true);
+    try {
+      await addHealthRecord(user.uid, { feeling, symptoms, notes });
+      const result = await completeChallenge(user.uid, 'checkin');
+      setXpAwarded(result.xpAwarded);
+      setShowToast(true);
+      setTimeout(() => {
+        setShowToast(false);
+      }, 2000);
+    } catch {
+      setError('Não foi possível salvar o registro. Tente novamente.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
-    <div className="h-full flex flex-col bg-[#F7F9FC]">
+    <div className="h-full flex flex-col bg-app-bg">
       {/* Header */}
       <div className="pt-12 pb-6 px-6">
         <button onClick={() => navigate('/dashboard')} className="p-2 -ml-2 mb-4">
-          <ArrowLeft size={24} className="text-[#1F2937]" />
+          <ArrowLeft size={26} className="text-ink" />
         </button>
-        <h1 className="text-[24px] font-bold text-[#1F2937]">
+        <h1 className="text-[26px] font-extrabold text-ink">
           Registro de Saúde
         </h1>
       </div>
@@ -45,22 +64,23 @@ export default function HealthRecord() {
       <div className="flex-1 overflow-y-auto pb-24 px-6">
         {/* Feeling Question */}
         <div className="mb-6">
-          <h2 className="text-[16px] font-semibold text-[#1F2937] mb-4">
+          <h2 className="text-[17px] font-bold text-ink mb-4">
             Como você se sentiu hoje?
           </h2>
           <div className="grid grid-cols-3 gap-3">
             {feelings.map((option) => (
-              <button
+              <motion.button
                 key={option.value}
+                whileTap={{ scale: 0.96 }}
                 onClick={() => setFeeling(option.value as any)}
-                className="bg-white rounded-xl py-6 border-2 transition-all relative"
+                className="bg-surface rounded-2xl py-6 border-2 transition-all relative"
                 style={{
-                  borderColor: feeling === option.value ? option.color : '#E5E7EB',
-                  backgroundColor: feeling === option.value ? `${option.color}15` : 'white',
+                  borderColor: feeling === option.value ? option.color : 'var(--color-border)',
+                  backgroundColor: feeling === option.value ? `${option.color}15` : 'var(--color-surface)',
                 }}
               >
                 <div className="text-4xl mb-2">{option.emoji}</div>
-                <div className="text-[14px] font-medium text-[#1F2937]">
+                <div className="text-[15px] font-medium text-ink">
                   {option.label}
                 </div>
                 {feeling === option.value && (
@@ -71,14 +91,14 @@ export default function HealthRecord() {
                     <Check size={14} className="text-white" strokeWidth={3} />
                   </div>
                 )}
-              </button>
+              </motion.button>
             ))}
           </div>
         </div>
 
         {/* Symptoms */}
-        <div className="bg-white rounded-[24px] p-6 mb-6 shadow-sm">
-          <h3 className="text-[14px] font-semibold text-[#1F2937] mb-4">
+        <div className="bg-surface rounded-3xl p-6 mb-6 shadow-sm">
+          <h3 className="text-[15px] font-bold text-ink mb-4">
             Sintomas
           </h3>
           <div className="space-y-3">
@@ -99,17 +119,17 @@ export default function HealthRecord() {
                     onChange={(e) =>
                       setSymptoms({ ...symptoms, [symptom.key]: e.target.checked })
                     }
-                    className="appearance-none w-5 h-5 border-2 border-[#E5E7EB] rounded checked:bg-[#3B82F6] checked:border-[#3B82F6] transition-colors"
+                    className="appearance-none w-6 h-6 border-2 border-border rounded checked:bg-brand-light checked:border-brand-light transition-colors"
                   />
                   {symptoms[symptom.key as keyof typeof symptoms] && (
                     <Check
-                      size={14}
+                      size={16}
                       className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white pointer-events-none"
                       strokeWidth={3}
                     />
                   )}
                 </div>
-                <span className="text-[14px] text-[#1F2937]">{symptom.label}</span>
+                <span className="text-[15px] text-ink">{symptom.label}</span>
               </label>
             ))}
           </div>
@@ -117,28 +137,32 @@ export default function HealthRecord() {
 
         {/* Notes */}
         <div className="mb-6">
-          <label className="block text-[14px] font-semibold text-[#1F2937] mb-2">
+          <label className="block text-[15px] font-semibold text-ink mb-2">
             Observações
           </label>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={4}
-            className="w-full bg-white border border-[#E5E7EB] rounded-xl px-4 py-3 text-[14px] text-[#1F2937] resize-none focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+            className="w-full bg-surface border border-border rounded-2xl px-4 py-3 text-[15px] text-ink resize-none focus:outline-none focus:ring-2 focus:ring-brand-light"
           />
         </div>
 
+        {error && <p className="text-[15px] text-danger mb-4">{error}</p>}
+
         {/* Save Button */}
-        <button
+        <motion.button
+          whileTap={{ scale: 0.96 }}
           onClick={handleSave}
-          className="w-full bg-[#3B82F6] text-white py-4 rounded-[18px] font-semibold text-[16px] mb-4 shadow-lg hover:bg-[#2563EB] transition-colors"
+          disabled={saving || !feeling}
+          className="w-full h-14 bg-brand-light text-white rounded-2xl font-bold text-[17px] mb-4 shadow-lg hover:bg-brand transition-colors disabled:opacity-60"
         >
-          Salvar Registro
-        </button>
+          {saving ? 'Salvando...' : 'Salvar Registro'}
+        </motion.button>
 
         {/* Info Card */}
-        <div className="bg-[#DCFCE7] rounded-[24px] p-6 shadow-sm">
-          <p className="text-[14px] text-[#1F2937] leading-relaxed">
+        <div className="bg-success-soft rounded-3xl p-6 shadow-sm">
+          <p className="text-[15px] text-ink leading-relaxed">
             💚 Seu registro ajuda a personalizar seu tratamento!
           </p>
         </div>
@@ -154,10 +178,12 @@ export default function HealthRecord() {
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 50 }}
-            className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-[#22C55E] text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-2"
+            className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-success text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-2"
           >
             <span className="text-lg">❤️</span>
-            <span className="text-[14px] font-semibold">Registro salvo!</span>
+            <span className="text-[15px] font-semibold">
+              Registro salvo!{xpAwarded > 0 ? ` +${xpAwarded} XP` : ''}
+            </span>
           </motion.div>
         )}
       </AnimatePresence>

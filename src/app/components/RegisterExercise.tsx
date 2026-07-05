@@ -1,14 +1,25 @@
 import { useState } from 'react';
 import { ArrowLeft, Check } from 'lucide-react';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
+import { useAuth } from '../../lib/auth-context';
+import { addExercise } from '../../lib/exercises';
+import { completeChallenge, getExerciseTier } from '../../lib/gamification';
+
+type TimerState = { type: string; minutes: number };
 
 export default function RegisterExercise() {
   const navigate = useNavigate();
-  const [exerciseType, setExerciseType] = useState('Caminhada');
-  const [duration, setDuration] = useState('20');
+  const location = useLocation();
+  const timerState = location.state as TimerState | null;
+  const { user } = useAuth();
+  const [exerciseType, setExerciseType] = useState(timerState?.type ?? 'Caminhada');
+  const [duration, setDuration] = useState(String(timerState?.minutes ?? 20));
   const [intensity, setIntensity] = useState<'leve' | 'médio' | 'intenso'>('leve');
   const [showSuccess, setShowSuccess] = useState(false);
+  const [xpAwarded, setXpAwarded] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const intensityOptions = [
     { value: 'leve', label: 'Leve', emoji: '😊', color: '#22C55E', bg: '#DCFCE7' },
@@ -22,21 +33,40 @@ export default function RegisterExercise() {
     { icon: '🧘', name: 'Alongamento' },
   ];
 
-  const handleSave = () => {
-    setShowSuccess(true);
-    setTimeout(() => {
-      navigate('/dashboard');
-    }, 1500);
+  const durationMinutes = Number(duration) || 0;
+  const currentTier = getExerciseTier(durationMinutes);
+
+  const handleSave = async () => {
+    if (!user) return;
+    setError(null);
+    setSaving(true);
+    try {
+      await addExercise(user.uid, {
+        type: exerciseType,
+        duration: durationMinutes,
+        intensity,
+      });
+      const result = await completeChallenge(user.uid, 'exercise', durationMinutes);
+      setXpAwarded(result.xpAwarded);
+      setShowSuccess(true);
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 1500);
+    } catch {
+      setError('Não foi possível salvar o exercício. Tente novamente.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
-    <div className="h-full flex flex-col bg-[#F7F9FC]">
+    <div className="h-full flex flex-col bg-app-bg">
       {/* Header */}
       <div className="pt-12 pb-6 px-6">
         <button onClick={() => navigate('/dashboard')} className="p-2 -ml-2 mb-4">
-          <ArrowLeft size={24} className="text-[#1F2937]" />
+          <ArrowLeft size={26} className="text-ink" />
         </button>
-        <h1 className="text-[24px] font-bold text-[#1F2937]">
+        <h1 className="text-[26px] font-extrabold text-ink">
           Registrar Exercício
         </h1>
       </div>
@@ -45,13 +75,13 @@ export default function RegisterExercise() {
       <div className="flex-1 overflow-y-auto pb-6 px-6">
         {/* Exercise Type */}
         <div className="mb-6">
-          <label className="block text-[14px] font-medium text-[#1F2937] mb-2">
+          <label className="block text-[15px] font-medium text-ink mb-2">
             Tipo de Exercício
           </label>
           <select
             value={exerciseType}
             onChange={(e) => setExerciseType(e.target.value)}
-            className="w-full bg-white border border-[#E5E7EB] rounded-xl px-4 py-3 text-[16px] text-[#1F2937] focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+            className="w-full h-14 bg-surface border border-border rounded-2xl px-4 text-[16px] text-ink focus:outline-none focus:ring-2 focus:ring-brand-light"
           >
             <option>Caminhada</option>
             <option>Bicicleta</option>
@@ -62,35 +92,40 @@ export default function RegisterExercise() {
 
         {/* Duration */}
         <div className="mb-6">
-          <label className="block text-[14px] font-medium text-[#1F2937] mb-2">
+          <label className="block text-[15px] font-medium text-ink mb-2">
             Duração (minutos)
           </label>
           <input
             type="number"
+            min={0}
             value={duration}
             onChange={(e) => setDuration(e.target.value)}
-            className="w-full bg-white border border-[#E5E7EB] rounded-xl px-4 py-3 text-[16px] text-[#1F2937] focus:outline-none focus:ring-2 focus:ring-[#3B82F6]"
+            className="w-full h-14 bg-surface border border-border rounded-2xl px-4 text-[16px] text-ink focus:outline-none focus:ring-2 focus:ring-brand-light"
           />
+          <p className="text-[13px] text-muted-ink mt-2">
+            {currentTier.label} → <span className="font-semibold text-success">+{currentTier.xp} XP</span>
+          </p>
         </div>
 
         {/* Intensity */}
         <div className="mb-6">
-          <label className="block text-[14px] font-medium text-[#1F2937] mb-2">
+          <label className="block text-[15px] font-medium text-ink mb-2">
             Intensidade
           </label>
           <div className="grid grid-cols-3 gap-3">
             {intensityOptions.map((option) => (
-              <button
+              <motion.button
                 key={option.value}
+                whileTap={{ scale: 0.96 }}
                 onClick={() => setIntensity(option.value as any)}
-                className="relative bg-white border-2 rounded-xl py-6 transition-all"
+                className="relative bg-surface border-2 rounded-2xl py-6 transition-all"
                 style={{
-                  borderColor: intensity === option.value ? option.color : '#E5E7EB',
-                  backgroundColor: intensity === option.value ? option.bg : 'white',
+                  borderColor: intensity === option.value ? option.color : 'var(--color-border)',
+                  backgroundColor: intensity === option.value ? option.bg : 'var(--color-surface)',
                 }}
               >
                 <div className="text-3xl mb-2">{option.emoji}</div>
-                <div className="text-[14px] font-medium text-[#1F2937]">
+                <div className="text-[15px] font-medium text-ink">
                   {option.label}
                 </div>
                 {intensity === option.value && (
@@ -101,36 +136,40 @@ export default function RegisterExercise() {
                     <Check size={14} className="text-white" strokeWidth={3} />
                   </div>
                 )}
-              </button>
+              </motion.button>
             ))}
           </div>
         </div>
 
         {/* Educational Card */}
-        <div className="bg-[#DBEAFE] rounded-xl p-4 mb-6">
-          <p className="text-[12px] text-[#1F2937] leading-relaxed">
+        <div className="bg-info-soft rounded-2xl p-4 mb-6">
+          <p className="text-[14px] text-ink leading-relaxed">
             <strong>Escala de esforço percebido:</strong> Escolha como você se sentiu durante o exercício.
           </p>
         </div>
 
+        {error && <p className="text-[15px] text-danger mb-4">{error}</p>}
+
         {/* Save Button */}
-        <button
+        <motion.button
+          whileTap={{ scale: 0.96 }}
           onClick={handleSave}
-          className="w-full bg-[#3B82F6] text-white py-4 rounded-[18px] font-semibold text-[16px] mb-6 shadow-lg hover:bg-[#2563EB] transition-colors"
+          disabled={saving}
+          className="w-full h-14 bg-brand-light text-white rounded-2xl font-bold text-[17px] mb-6 shadow-lg hover:bg-brand transition-colors disabled:opacity-60"
         >
-          Salvar Exercício
-        </button>
+          {saving ? 'Salvando...' : 'Salvar Exercício'}
+        </motion.button>
 
         {/* Recommended Exercises */}
         <div>
-          <h3 className="text-[14px] font-semibold text-[#1F2937] mb-3">
+          <h3 className="text-[15px] font-bold text-ink mb-3">
             Exercícios recomendados
           </h3>
-          <div className="bg-white rounded-xl p-4 space-y-2">
+          <div className="bg-surface rounded-2xl p-4 space-y-2">
             {recommendedExercises.map((exercise, index) => (
               <div key={index} className="flex items-center gap-3 py-1">
                 <span className="text-xl">{exercise.icon}</span>
-                <span className="text-[14px] text-[#1F2937]">{exercise.name}</span>
+                <span className="text-[15px] text-ink">{exercise.name}</span>
               </div>
             ))}
           </div>
@@ -144,10 +183,12 @@ export default function RegisterExercise() {
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 50 }}
-            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#22C55E] text-white px-8 py-4 rounded-2xl shadow-2xl flex items-center gap-3"
+            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-success text-white px-8 py-4 rounded-2xl shadow-2xl flex items-center gap-3"
           >
             <Check size={24} strokeWidth={3} />
-            <span className="text-[16px] font-semibold">Exercício salvo!</span>
+            <span className="text-[17px] font-semibold">
+              Exercício salvo!{xpAwarded > 0 ? ` +${xpAwarded} XP` : ''}
+            </span>
           </motion.div>
         )}
       </AnimatePresence>
