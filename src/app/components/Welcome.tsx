@@ -20,16 +20,8 @@ export default function Welcome() {
         <h1 className="text-[28px] font-extrabold text-ink mb-2">
           Olá, {user?.displayName ?? 'tudo bem'}! Esse é o Corazão 💗
         </h1>
-        <p className="text-[16px] text-muted-ink mb-3 leading-relaxed">
-          Ele cresce junto com você. Cada exercício, check-in de saúde ou refeição saudável
-          te dá XP e ajuda o Corazão a florescer.
-        </p>
-        <p className="text-[16px] text-muted-ink mb-3 leading-relaxed">
-          Se você exercitar todos os dias, sua sequência (🔥 streak) aumenta — e o Corazão
-          fica ainda mais feliz.
-        </p>
         <p className="text-[16px] text-muted-ink mb-8 leading-relaxed">
-          Vamos começar devagar, no seu ritmo.
+          Cada exercício e check-in dá XP e faz o Corazão crescer — no seu ritmo. 🌱
         </p>
 
         <motion.button

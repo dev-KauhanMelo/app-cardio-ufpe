@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { motion } from 'motion/react';
-import { Check, Minus, Plus } from 'lucide-react';
+import { Check, ChevronRight, Minus, Plus } from 'lucide-react';
 import {
   CHECKIN_XP,
   EXERCISE_TIER_TABLE,
@@ -13,9 +13,17 @@ type Props = {
   challenges: TodayChallenges;
   onCompleteNutrition: (portions: number) => void;
   completing: boolean;
+  onExerciseClick?: () => void;
+  onCheckinClick?: () => void;
 };
 
-export default function DailyChallenges({ challenges, onCompleteNutrition, completing }: Props) {
+export default function DailyChallenges({
+  challenges,
+  onCompleteNutrition,
+  completing,
+  onExerciseClick,
+  onCheckinClick,
+}: Props) {
   const [portions, setPortions] = useState(0);
   const nutritionTier = getNutritionTier(portions);
 
@@ -29,6 +37,7 @@ export default function DailyChallenges({ challenges, onCompleteNutrition, compl
           label="Registrar um exercício"
           entry={challenges.exercise}
           hint={EXERCISE_TIER_TABLE.map((t) => `${t.label}: +${t.xp} XP`).join(' · ')}
+          onClick={onExerciseClick}
         />
 
         {/* Check-in */}
@@ -36,6 +45,7 @@ export default function DailyChallenges({ challenges, onCompleteNutrition, compl
           label="Fazer o check-in de saúde"
           entry={challenges.checkin}
           hint={`+${CHECKIN_XP} XP`}
+          onClick={onCheckinClick}
         />
 
         {/* Nutrition */}
@@ -67,7 +77,9 @@ export default function DailyChallenges({ challenges, onCompleteNutrition, compl
               >
                 <Minus size={16} className="text-ink" />
               </button>
-              <span className="text-[16px] font-bold text-ink w-8 text-center">{portions}</span>
+              <span className="text-[16px] font-bold text-ink text-center">
+                {portions} {portions === 1 ? 'porção' : 'porções'}
+              </span>
               <button
                 onClick={() => setPortions((p) => Math.min(9, p + 1))}
                 className="w-9 h-9 rounded-full bg-surface border border-border flex items-center justify-center"
@@ -95,14 +107,20 @@ function ChallengeRow({
   label,
   entry,
   hint,
+  onClick,
 }: {
   label: string;
   entry: { tier: string; xp: number } | null;
   hint: string;
+  onClick?: () => void;
 }) {
   const done = Boolean(entry);
+  const Wrapper = onClick ? motion.button : 'div';
   return (
-    <div className="flex items-center gap-3 p-3 rounded-2xl bg-app-bg">
+    <Wrapper
+      {...(onClick ? { whileTap: { scale: 0.98 }, onClick, 'aria-label': label } : {})}
+      className={`w-full flex items-center gap-3 p-3 rounded-2xl bg-app-bg text-left ${onClick ? 'cursor-pointer' : ''}`}
+    >
       <div
         className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
           done ? 'bg-success' : 'bg-surface border-2 border-border'
@@ -116,6 +134,7 @@ function ChallengeRow({
         </p>
         <p className="text-[13px] text-muted-ink">{done ? `${entry!.tier} · +${entry!.xp} XP` : hint}</p>
       </div>
-    </div>
+      {onClick && <ChevronRight size={20} className="text-muted-ink flex-shrink-0" />}
+    </Wrapper>
   );
 }

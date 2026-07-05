@@ -11,8 +11,15 @@ const RING_SIZE = 132;
 const STROKE = 10;
 const RADIUS = (RING_SIZE - STROKE) / 2;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
+const WEEK_DAYS = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
 
-export default function PlantWidget({ profile }: { profile: UserProfile }) {
+export default function PlantWidget({
+  profile,
+  weekCompletedDays,
+}: {
+  profile: UserProfile;
+  weekCompletedDays?: boolean[];
+}) {
   const stage = getPlantStage(profile.level);
   const mood = getMascotMood(profile);
   const xpIntoLevel = profile.xp % XP_PER_LEVEL;
@@ -20,11 +27,7 @@ export default function PlantWidget({ profile }: { profile: UserProfile }) {
   const dashOffset = CIRCUMFERENCE * (1 - progressRatio);
 
   return (
-    <div className="relative overflow-hidden rounded-3xl p-6 mb-4 shadow-sm bg-[image:var(--gradient-hero)]">
-      <div
-        className="absolute inset-0 opacity-25 pointer-events-none"
-        style={{ backgroundImage: 'var(--gradient-blob)' }}
-      />
+    <div className="relative overflow-hidden rounded-3xl p-6 mb-4 shadow-sm bg-surface">
       <div className="relative flex items-center gap-4">
         <div className="relative flex-shrink-0" style={{ width: RING_SIZE, height: RING_SIZE }}>
           <svg width={RING_SIZE} height={RING_SIZE} className="absolute inset-0 -rotate-90">
@@ -78,6 +81,21 @@ export default function PlantWidget({ profile }: { profile: UserProfile }) {
           </p>
         </div>
       </div>
+
+      {weekCompletedDays && (
+        <div className="relative flex justify-between gap-1.5 mt-4 pt-4 border-t border-border">
+          {WEEK_DAYS.map((day, index) => (
+            <div key={index} className="flex flex-col items-center gap-1 flex-1">
+              <div
+                className={`w-full h-1.5 rounded-full transition-colors ${
+                  weekCompletedDays[index] ? 'bg-success' : 'bg-border'
+                }`}
+              ></div>
+              <span className="text-[11px] text-muted-ink">{day}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

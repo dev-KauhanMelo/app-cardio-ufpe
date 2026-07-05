@@ -12,6 +12,8 @@ type Achievement = {
   label: string;
   description: string;
   earned: boolean;
+  current: number;
+  goal: number;
 };
 
 export default function Achievements() {
@@ -27,30 +29,40 @@ export default function Achievements() {
     getAllExercises(user.uid).then((exercises) => setTotalExercises(exercises.length));
   }, [user]);
 
+  const longestStreak = profile?.longestStreak ?? 0;
+
   const achievements: Achievement[] = [
     {
       id: 'first-walk',
       label: 'Primeira Caminhada',
       description: 'Parabéns pelo início!',
       earned: totalExercises >= 1,
+      current: totalExercises,
+      goal: 1,
     },
     {
       id: 'streak-7',
       label: '7 Dias Seguidos',
       description: 'Muito bem!',
-      earned: Boolean(profile && profile.longestStreak >= 7),
+      earned: longestStreak >= 7,
+      current: longestStreak,
+      goal: 7,
     },
     {
       id: 'exercises-10',
       label: '10 Exercícios',
       description: 'Ótimo trabalho!',
       earned: totalExercises >= 10,
+      current: totalExercises,
+      goal: 10,
     },
     {
       id: 'streak-15',
       label: '15 Dias Seguidos',
       description: 'Você é incrível!',
-      earned: Boolean(profile && profile.longestStreak >= 15),
+      earned: longestStreak >= 15,
+      current: longestStreak,
+      goal: 15,
     },
   ];
 
@@ -103,14 +115,32 @@ export default function Achievements() {
 }
 
 function Badge({ achievement }: { achievement: Achievement }) {
-  const { label, description, earned } = achievement;
+  const { label, description, earned, current, goal } = achievement;
+  const progress = Math.min(1, current / goal);
+
   return (
-    <div className={`rounded-2xl p-4 shadow-sm text-center ${earned ? 'bg-success-soft' : 'bg-surface'}`}>
-      <div className="text-3xl mb-2 flex justify-center">
-        {earned ? '🏅' : <Lock className="text-icon-muted" size={28} />}
-      </div>
-      <p className={`text-[14px] font-semibold ${earned ? 'text-ink' : 'text-muted-ink'}`}>{label}</p>
-      {earned && <p className="text-[12px] text-muted-ink mt-1">{description}</p>}
+    <div className={`relative rounded-2xl p-4 shadow-sm ${earned ? 'bg-success-soft text-center' : 'bg-surface'}`}>
+      {earned ? (
+        <>
+          <div className="text-3xl mb-2 flex justify-center">🏅</div>
+          <p className="text-[14px] font-semibold text-ink">{label}</p>
+          <p className="text-[12px] text-muted-ink mt-1">{description}</p>
+        </>
+      ) : (
+        <>
+          <Lock className="absolute top-3 right-3 text-icon-muted" size={16} />
+          <p className="text-[14px] font-semibold text-muted-ink mb-2 pr-5">{label}</p>
+          <div className="h-1.5 rounded-full bg-border overflow-hidden mb-1.5">
+            <div
+              className="h-full rounded-full bg-brand-light transition-all"
+              style={{ width: `${Math.round(progress * 100)}%` }}
+            />
+          </div>
+          <p className="text-[12px] text-muted-ink">
+            {Math.min(current, goal)} / {goal}
+          </p>
+        </>
+      )}
     </div>
   );
 }

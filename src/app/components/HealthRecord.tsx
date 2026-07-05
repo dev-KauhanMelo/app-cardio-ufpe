@@ -1,16 +1,30 @@
-import { useState } from 'react';
-import { ArrowLeft, Check } from 'lucide-react';
-import { useNavigate } from 'react-router';
+import { useEffect, useState } from 'react';
+import { ArrowLeft, Check, TriangleAlert } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router';
 import { motion, AnimatePresence } from 'motion/react';
 import BottomNav from './BottomNav';
+import Mascot from './Mascot';
 import { useAuth } from '../../lib/auth-context';
 import { addHealthRecord } from '../../lib/health-records';
-import { completeChallenge } from '../../lib/gamification';
+import { completeChallenge, getUserProfile, type MascotMood } from '../../lib/gamification';
+
+type Feeling = 'bem' | 'normal' | 'cansado';
+
+type FromExerciseState = { fromExercise?: { type: string; duration: number } } | null;
+
+const FEELING_MOOD: Record<Feeling, MascotMood> = {
+  bem: 'happy',
+  normal: 'neutral',
+  cansado: 'sleepy',
+};
 
 export default function HealthRecord() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const fromExercise = (location.state as FromExerciseState)?.fromExercise ?? null;
   const { user } = useAuth();
-  const [feeling, setFeeling] = useState<'bem' | 'normal' | 'cansado' | null>(null);
+  const [level, setLevel] = useState(1);
+  const [feeling, setFeeling] = useState<Feeling | null>(null);
   const [symptoms, setSymptoms] = useState({
     chestPain: false,
     breathlessness: false,
@@ -23,7 +37,12 @@ export default function HealthRecord() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const feelings = [
+  useEffect(() => {
+    if (!user) return;
+    getUserProfile(user.uid).then((profile) => setLevel(profile.level));
+  }, [user]);
+
+  const feelings: { value: Feeling; emoji: string; label: string; color: string }[] = [
     { value: 'bem', emoji: '😄', label: 'Bem', color: '#22C55E' },
     { value: 'normal', emoji: '😐', label: 'Normal', color: '#FACC15' },
     { value: 'cansado', emoji: '😓', label: 'Cansado', color: '#EF4444' },
@@ -37,10 +56,13 @@ export default function HealthRecord() {
       await addHealthRecord(user.uid, { feeling, symptoms, notes });
       const result = await completeChallenge(user.uid, 'checkin');
       setXpAwarded(result.xpAwarded);
-      setShowToast(true);
-      setTimeout(() => {
-        setShowToast(false);
-      }, 2000);
+
+      if (fromExercise) {
+        navigate('/dashboard');
+      } else {
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 2000);
+      }
     } catch {
       setError('Não foi possível salvar o registro. Tente novamente.');
     } finally {
@@ -64,22 +86,29 @@ export default function HealthRecord() {
       <div className="flex-1 overflow-y-auto pb-24 px-6">
         {/* Feeling Question */}
         <div className="mb-6">
-          <h2 className="text-[17px] font-bold text-ink mb-4">
-            Como você se sentiu hoje?
+          <div className="flex justify-center mb-3">
+            <Mascot level={level} mood={feeling ? FEELING_MOOD[feeling] : 'neutral'} size={80} />
+          </div>
+          <h2 className="text-[18px] font-bold text-ink mb-4 text-center">
+            {fromExercise
+              ? `Como você se sentiu na ${fromExercise.type} de ${fromExercise.duration} min?`
+              : 'Como você se sentiu hoje?'}
           </h2>
           <div className="grid grid-cols-3 gap-3">
             {feelings.map((option) => (
               <motion.button
                 key={option.value}
-                whileTap={{ scale: 0.96 }}
-                onClick={() => setFeeling(option.value as any)}
-                className="bg-surface rounded-2xl py-6 border-2 transition-all relative"
+                whileTap={{ scale: 0.9 }}
+                animate={feeling === option.value ? { scale: [1, 1.15, 1] } : { scale: 1 }}
+                transition={{ duration: 0.3 }}
+                onClick={() => setFeeling(option.value)}
+                className="bg-surface rounded-2xl py-6 border-2 transition-colors relative"
                 style={{
                   borderColor: feeling === option.value ? option.color : 'var(--color-border)',
                   backgroundColor: feeling === option.value ? `${option.color}15` : 'var(--color-surface)',
                 }}
               >
-                <div className="text-4xl mb-2">{option.emoji}</div>
+                <div className="text-6xl mb-2">{option.emoji}</div>
                 <div className="text-[15px] font-medium text-ink">
                   {option.label}
                 </div>
@@ -103,36 +132,55 @@ export default function HealthRecord() {
           </h3>
           <div className="space-y-3">
             {[
-              { key: 'chestPain', label: 'Dor no peito?' },
-              { key: 'breathlessness', label: 'Falta de ar?' },
-              { key: 'dizziness', label: 'Tontura?' },
-              { key: 'other', label: 'Outros sintomas?' },
-            ].map((symptom) => (
-              <label
-                key={symptom.key}
-                className="flex items-center gap-3 cursor-pointer"
-              >
-                <div className="relative">
-                  <input
-                    type="checkbox"
-                    checked={symptoms[symptom.key as keyof typeof symptoms]}
-                    onChange={(e) =>
-                      setSymptoms({ ...symptoms, [symptom.key]: e.target.checked })
-                    }
-                    className="appearance-none w-6 h-6 border-2 border-border rounded checked:bg-brand-light checked:border-brand-light transition-colors"
-                  />
-                  {symptoms[symptom.key as keyof typeof symptoms] && (
-                    <Check
-                      size={16}
-                      className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white pointer-events-none"
-                      strokeWidth={3}
+              { key: 'chestPain', label: 'Dor no peito?', cardiac: true },
+              { key: 'breathlessness', label: 'Falta de ar?', cardiac: true },
+              { key: 'dizziness', label: 'Tontura?', cardiac: true },
+              { key: 'other', label: 'Outros sintomas?', cardiac: false },
+            ].map((symptom) => {
+              const checked = symptoms[symptom.key as keyof typeof symptoms];
+              const alert = symptom.cardiac && checked;
+              return (
+                <label
+                  key={symptom.key}
+                  className="flex items-center gap-3 cursor-pointer"
+                >
+                  <div className="relative">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={(e) =>
+                        setSymptoms({ ...symptoms, [symptom.key]: e.target.checked })
+                      }
+                      className={`appearance-none w-6 h-6 border-2 rounded transition-colors ${
+                        alert
+                          ? 'bg-danger border-danger'
+                          : 'border-border checked:bg-brand-light checked:border-brand-light'
+                      }`}
                     />
-                  )}
-                </div>
-                <span className="text-[15px] text-ink">{symptom.label}</span>
-              </label>
-            ))}
+                    {checked && (
+                      <Check
+                        size={16}
+                        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-white pointer-events-none"
+                        strokeWidth={3}
+                      />
+                    )}
+                  </div>
+                  <span className={`text-[15px] ${alert ? 'font-semibold text-danger' : 'text-ink'}`}>
+                    {symptom.label}
+                  </span>
+                </label>
+              );
+            })}
           </div>
+
+          {(symptoms.chestPain || symptoms.breathlessness || symptoms.dizziness) && (
+            <div className="mt-4 bg-danger-soft rounded-2xl p-4 flex items-start gap-3">
+              <TriangleAlert size={20} className="text-danger flex-shrink-0 mt-0.5" />
+              <p className="text-[14px] text-ink leading-relaxed">
+                <strong>Vale atenção:</strong> sintomas assim merecem contato com seu médico ainda hoje.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Notes */}
@@ -171,7 +219,7 @@ export default function HealthRecord() {
       {/* Bottom Navigation */}
       <BottomNav />
 
-      {/* Toast */}
+      {/* Toast (só quando é um check-in avulso, fora do fluxo guiado) */}
       <AnimatePresence>
         {showToast && (
           <motion.div

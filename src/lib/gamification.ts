@@ -183,6 +183,14 @@ export async function setNotificationsOptIn(uid: string, optIn: boolean) {
 export type ChallengeDayEntry = { tier: string; xp: number } | null;
 export type TodayChallenges = Record<ChallengeId, ChallengeDayEntry>;
 
+export type RoutineStep = 'exercise' | 'checkin' | 'done';
+
+export function getNextRoutineStep(challenges: TodayChallenges): RoutineStep {
+  if (!challenges.exercise) return 'exercise';
+  if (!challenges.checkin) return 'checkin';
+  return 'done';
+}
+
 export async function getTodayChallenges(uid: string): Promise<TodayChallenges> {
   const ref = doc(db, 'users', uid, 'challengeDays', getTodayId());
   const snap = await getDoc(ref);

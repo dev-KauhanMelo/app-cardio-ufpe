@@ -1,28 +1,26 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'motion/react';
-import { Moon, Sun, ChevronRight } from 'lucide-react';
+import { Moon, Sun, ChevronRight, BookOpen } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import BottomNav from './BottomNav';
 import PlantWidget from './PlantWidget';
 import DailyChallenges from './DailyChallenges';
+import Mascot from './Mascot';
 import { useAuth } from '../../lib/auth-context';
 import { useTheme } from '../../lib/theme-context';
 import { getExercisesSince } from '../../lib/exercises';
+import { getExerciseCatalogItem } from '../../lib/exercise-catalog';
 import {
   completeChallenge,
+  getNextRoutineStep,
   getTodayChallenges,
   getUserProfile,
+  type RoutineStep,
   type TodayChallenges,
   type UserProfile,
 } from '../../lib/gamification';
 
-const WEEK_DAYS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
-
-const TODAY_EXERCISES = [
-  { icon: '🚶', name: 'Caminhada leve', duration: '20 min', color: 'var(--color-walk)' },
-  { icon: '🫁', name: 'Exercício respiratório', duration: '10 min', color: 'var(--color-breath)' },
-  { icon: '🧘', name: 'Alongamento', duration: '10 min', color: 'var(--color-stretch)' },
-];
+const DEFAULT_EXERCISE_ID = 'caminhada';
 
 function startOfWeek(date: Date) {
   const result = new Date(date);
@@ -30,6 +28,59 @@ function startOfWeek(date: Date) {
   result.setDate(result.getDate() - day);
   result.setHours(0, 0, 0, 0);
   return result;
+}
+
+function RoutineCard({
+  step,
+  level,
+  onAction,
+}: {
+  step: RoutineStep;
+  level: number;
+  onAction: () => void;
+}) {
+  if (step === 'done') {
+    return (
+      <div className="relative overflow-hidden rounded-3xl p-6 mb-4 shadow-sm bg-[image:var(--gradient-hero)]">
+        <div
+          className="absolute inset-0 opacity-25 pointer-events-none"
+          style={{ backgroundImage: 'var(--gradient-blob)' }}
+        />
+        <div className="relative flex items-center gap-4">
+          <Mascot level={level} mood="happy" size={72} />
+          <div>
+            <p className="text-[17px] font-bold text-ink">Rotina de hoje concluída! 🎉</p>
+            <p className="text-[14px] text-muted-ink">Volte amanhã para continuar sua sequência.</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const exerciseName = getExerciseCatalogItem(DEFAULT_EXERCISE_ID)?.name ?? 'Caminhada';
+  const title = step === 'exercise' ? 'Sua rotina de hoje' : 'Como você se sentiu no exercício de hoje?';
+  const subtitle = step === 'exercise' ? exerciseName : 'Leva menos de 1 minuto';
+  const buttonLabel = step === 'exercise' ? 'Começar agora' : 'Fazer check-in';
+
+  return (
+    <div className="relative overflow-hidden rounded-3xl p-6 mb-4 shadow-sm bg-[image:var(--gradient-hero)]">
+      <div
+        className="absolute inset-0 opacity-25 pointer-events-none"
+        style={{ backgroundImage: 'var(--gradient-blob)' }}
+      />
+      <div className="relative">
+        <p className="text-[14px] font-semibold text-muted-ink mb-1">{title}</p>
+        <p className="text-[20px] font-extrabold text-ink mb-4">{subtitle}</p>
+        <motion.button
+          whileTap={{ scale: 0.96 }}
+          onClick={onAction}
+          className="w-full h-14 bg-brand-light text-white rounded-2xl font-bold text-[17px] shadow-lg hover:bg-brand transition-colors"
+        >
+          {buttonLabel}
+        </motion.button>
+      </div>
+    </div>
+  );
 }
 
 export default function Dashboard() {
@@ -76,6 +127,16 @@ export default function Dashboard() {
     }
   };
 
+  const routineStep = challenges ? getNextRoutineStep(challenges) : null;
+
+  const handleRoutineAction = () => {
+    if (routineStep === 'exercise') {
+      navigate(`/exercises/${DEFAULT_EXERCISE_ID}`);
+    } else if (routineStep === 'checkin') {
+      navigate('/health');
+    }
+  };
+
   return (
     <div className="h-full flex flex-col bg-app-bg">
       {/* Header */}
@@ -95,90 +156,47 @@ export default function Dashboard() {
 
       {/* Scrollable Content */}
       <div className="flex-1 overflow-y-auto pb-24 px-6 pt-4">
-        {profile && <PlantWidget profile={profile} />}
+        {routineStep && profile && (
+          <RoutineCard step={routineStep} level={profile.level} onAction={handleRoutineAction} />
+        )}
+
+        {/* Library Card */}
+        <motion.button
+          whileTap={{ scale: 0.98 }}
+          onClick={() => navigate('/exercises')}
+          className="w-full bg-surface rounded-3xl p-6 shadow-sm transition-colors mb-4 flex items-center gap-3"
+          aria-label="Ver biblioteca de exercícios"
+        >
+          <div className="w-12 h-12 rounded-full bg-info-soft flex items-center justify-center flex-shrink-0">
+            <BookOpen size={22} className="text-ink" />
+          </div>
+          <div className="flex-1 text-left">
+            <h3 className="text-[15px] font-bold text-ink">Biblioteca de exercícios</h3>
+            <p className="text-[13px] text-muted-ink">Veja todos os exercícios disponíveis</p>
+          </div>
+          <ChevronRight size={20} className="text-muted-ink" />
+        </motion.button>
+
+        {profile && (
+          <PlantWidget profile={profile} weekCompletedDays={loading ? undefined : completedDays} />
+        )}
         {challenges && (
           <DailyChallenges
             challenges={challenges}
             onCompleteNutrition={handleCompleteNutrition}
             completing={completingChallenge}
+            onExerciseClick={
+              !challenges.exercise ? () => navigate(`/exercises/${DEFAULT_EXERCISE_ID}`) : undefined
+            }
+            onCheckinClick={!challenges.checkin ? () => navigate('/health') : undefined}
           />
         )}
-
-        {/* Today's Exercises */}
-        <div className="bg-surface rounded-3xl p-6 mb-4 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-[17px] font-bold text-ink">
-              Hoje você tem:
-            </h2>
-            <button
-              onClick={() => navigate('/exercises')}
-              className="text-[13px] font-semibold text-brand"
-            >
-              Ver biblioteca
-            </button>
-          </div>
-          <div className="space-y-3">
-            {TODAY_EXERCISES.map((exercise, index) => (
-              <motion.button
-                key={index}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => navigate('/register')}
-                className="w-full flex items-center gap-4 p-3 rounded-2xl hover:bg-app-bg transition-colors"
-              >
-                <div
-                  className="w-12 h-12 rounded-full flex items-center justify-center text-2xl"
-                  style={{ backgroundColor: `color-mix(in srgb, ${exercise.color} 20%, transparent)` }}
-                >
-                  {exercise.icon}
-                </div>
-                <div className="flex-1 text-left">
-                  <p className="text-[15px] font-medium text-ink">
-                    {exercise.name}
-                  </p>
-                  <p className="text-[13px] text-muted-ink">{exercise.duration}</p>
-                </div>
-                <ChevronRight size={20} className="text-muted-ink" />
-              </motion.button>
-            ))}
-          </div>
-        </div>
-
-        {/* Register Button */}
-        <motion.button
-          whileTap={{ scale: 0.96 }}
-          onClick={() => navigate('/register')}
-          className="w-full h-14 bg-brand-light text-white rounded-2xl font-bold text-[17px] mb-4 shadow-lg hover:bg-brand transition-colors"
-        >
-          + Registrar Exercício
-        </motion.button>
-
-        {/* Weekly Progress */}
-        <div className="bg-surface rounded-3xl p-6 mb-4 shadow-sm">
-          <h2 className="text-[17px] font-bold text-ink mb-4">
-            Progresso semanal
-          </h2>
-          <div className="flex justify-between gap-2">
-            {WEEK_DAYS.map((day, index) => {
-              const isCompleted = !loading && completedDays[index];
-              return (
-                <div key={index} className="flex flex-col items-center gap-2 flex-1">
-                  <div
-                    className={`w-full h-2 rounded-full transition-colors ${
-                      isCompleted ? 'bg-success' : 'bg-border'
-                    }`}
-                  ></div>
-                  <span className="text-[13px] text-muted-ink">{day}</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
 
         {/* AI Card */}
         <motion.button
           whileTap={{ scale: 0.98 }}
           onClick={() => navigate('/ai')}
-          className="w-full bg-success-soft rounded-3xl p-6 shadow-sm transition-colors"
+          className="w-full bg-success-soft rounded-3xl p-6 shadow-sm transition-colors mb-4"
         >
           <div className="flex items-start gap-3">
             <div className="text-2xl">🤖</div>
@@ -193,6 +211,16 @@ export default function Dashboard() {
             <ChevronRight size={20} className="text-ink" />
           </div>
         </motion.button>
+
+        {/* Secondary navigation */}
+        <div className="flex items-center justify-center">
+          <button
+            onClick={() => navigate('/register')}
+            className="text-[13px] font-semibold text-muted-ink"
+          >
+            Registrar manualmente
+          </button>
+        </div>
       </div>
 
       {/* Bottom Navigation */}

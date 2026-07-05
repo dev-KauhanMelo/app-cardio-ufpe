@@ -50,8 +50,10 @@ export default function RegisterExercise() {
       setXpAwarded(result.xpAwarded);
       setShowSuccess(true);
       setTimeout(() => {
-        navigate('/dashboard');
-      }, 1500);
+        navigate('/health', {
+          state: { fromExercise: { type: exerciseType, duration: durationMinutes } },
+        });
+      }, 1200);
     } catch {
       setError('Não foi possível salvar o exercício. Tente novamente.');
     } finally {

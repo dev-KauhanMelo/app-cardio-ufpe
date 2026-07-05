@@ -1,12 +1,16 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, Trophy, TrendingUp } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { BarChart, Bar, XAxis, ResponsiveContainer, Cell } from 'recharts';
 import BottomNav from './BottomNav';
 import { useAuth } from '../../lib/auth-context';
-import { getExercisesSince } from '../../lib/exercises';
+import { getAllExercises, type Exercise } from '../../lib/exercises';
 
 const WEEK_DAYS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+const MONTH_ABBR = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
+type Period = 'semana' | 'mes' | 'ano';
+type ChartPoint = { day: string; value: number };
 
 function startOfWeek(date: Date) {
   const result = new Date(date);
@@ -16,38 +20,81 @@ function startOfWeek(date: Date) {
   return result;
 }
 
+function getWeekChartData(exercises: Exercise[], weekStart: Date): ChartPoint[] {
+  const counts = Array(7).fill(0);
+  exercises.forEach((exercise) => {
+    if (exercise.createdAt >= weekStart) {
+      const dayIndex = (exercise.createdAt.getDay() + 6) % 7;
+      counts[dayIndex] += 1;
+    }
+  });
+  return WEEK_DAYS.map((day, index) => ({ day, value: counts[index] }));
+}
+
+function getMonthChartData(exercises: Exercise[], now: Date): ChartPoint[] {
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const weeksCount = Math.ceil(daysInMonth / 7);
+  const counts = Array(weeksCount).fill(0);
+  exercises.forEach((exercise) => {
+    if (exercise.createdAt.getFullYear() === year && exercise.createdAt.getMonth() === month) {
+      const weekIndex = Math.floor((exercise.createdAt.getDate() - 1) / 7);
+      counts[weekIndex] += 1;
+    }
+  });
+  return counts.map((value, index) => ({ day: `Sem ${index + 1}`, value }));
+}
+
+function getYearChartData(exercises: Exercise[], now: Date): ChartPoint[] {
+  const year = now.getFullYear();
+  const counts = Array(12).fill(0);
+  exercises.forEach((exercise) => {
+    if (exercise.createdAt.getFullYear() === year) {
+      counts[exercise.createdAt.getMonth()] += 1;
+    }
+  });
+  return MONTH_ABBR.map((label, index) => ({ day: label, value: counts[index] }));
+}
+
 export default function Progress() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [data, setData] = useState(WEEK_DAYS.map((day) => ({ day, value: 0 })));
-  const [previousWeekTotal, setPreviousWeekTotal] = useState<number | null>(null);
-  const daysWithExercise = data.filter((d) => d.value > 0).length;
-  const weekTotal = data.reduce((sum, d) => sum + d.value, 0);
-  const evolutionPercent =
-    previousWeekTotal && previousWeekTotal > 0
-      ? Math.round(((weekTotal - previousWeekTotal) / previousWeekTotal) * 100)
-      : null;
+  const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [period, setPeriod] = useState<Period>('semana');
 
   useEffect(() => {
     if (!user) return;
-    const weekStart = startOfWeek(new Date());
-    const previousWeekStart = new Date(weekStart);
-    previousWeekStart.setDate(previousWeekStart.getDate() - 7);
-
-    getExercisesSince(user.uid, weekStart).then((entries) => {
-      const counts = Array(7).fill(0);
-      entries.forEach((entry) => {
-        const dayIndex = (entry.createdAt.getDay() + 6) % 7;
-        counts[dayIndex] += 1;
-      });
-      setData(WEEK_DAYS.map((day, index) => ({ day, value: counts[index] })));
-    });
-
-    getExercisesSince(user.uid, previousWeekStart).then((entries) => {
-      const lastWeekEntries = entries.filter((entry) => entry.createdAt < weekStart);
-      setPreviousWeekTotal(lastWeekEntries.length);
-    });
+    getAllExercises(user.uid).then(setExercises);
   }, [user]);
+
+  const now = useMemo(() => new Date(), []);
+  const weekStart = useMemo(() => startOfWeek(now), [now]);
+  const previousWeekStart = useMemo(() => {
+    const d = new Date(weekStart);
+    d.setDate(d.getDate() - 7);
+    return d;
+  }, [weekStart]);
+
+  const weekData = useMemo(() => getWeekChartData(exercises, weekStart), [exercises, weekStart]);
+  const weekTotal = weekData.reduce((sum, d) => sum + d.value, 0);
+  const daysWithExercise = weekData.filter((d) => d.value > 0).length;
+
+  const previousWeekTotal = useMemo(
+    () =>
+      exercises.filter((e) => e.createdAt >= previousWeekStart && e.createdAt < weekStart).length,
+    [exercises, previousWeekStart, weekStart]
+  );
+
+  const evolutionPercent =
+    previousWeekTotal > 0 ? Math.round(((weekTotal - previousWeekTotal) / previousWeekTotal) * 100) : null;
+
+  const data =
+    period === 'semana'
+      ? weekData
+      : period === 'mes'
+        ? getMonthChartData(exercises, now)
+        : getYearChartData(exercises, now);
 
   return (
     <div className="h-full flex flex-col bg-app-bg">
@@ -59,10 +106,14 @@ export default function Progress() {
         <h1 className="text-[26px] font-extrabold text-ink mb-4">
           Seu Progresso
         </h1>
-        <select className="w-full h-14 bg-surface border border-border rounded-2xl px-4 text-[15px] text-ink focus:outline-none focus:ring-2 focus:ring-brand-light">
-          <option>Esta semana</option>
-          <option>Este mês</option>
-          <option>Este ano</option>
+        <select
+          value={period}
+          onChange={(e) => setPeriod(e.target.value as Period)}
+          className="w-full h-14 bg-surface border border-border rounded-2xl px-4 text-[15px] text-ink focus:outline-none focus:ring-2 focus:ring-brand-light"
+        >
+          <option value="semana">Esta semana</option>
+          <option value="mes">Este mês</option>
+          <option value="ano">Este ano</option>
         </select>
       </div>
 
@@ -76,7 +127,7 @@ export default function Progress() {
                 dataKey="day"
                 axisLine={false}
                 tickLine={false}
-                tick={{ fill: '#6B7280', fontSize: 13 }}
+                tick={{ fill: '#6B7280', fontSize: 12 }}
               />
               <Bar dataKey="value" radius={[8, 8, 0, 0]}>
                 {data.map((entry, index) => (
