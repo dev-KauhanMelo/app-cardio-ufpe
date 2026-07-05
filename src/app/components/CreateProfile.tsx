@@ -35,7 +35,8 @@ export default function CreateProfile() {
   };
 
   return (
-    <div className="h-full flex flex-col bg-app-bg px-6 justify-center">
+    <div className="h-full overflow-y-auto bg-app-bg">
+      <div className="min-h-full flex flex-col justify-center px-6 py-10">
       <h1 className="text-[26px] font-extrabold text-ink mb-1">Criar Perfil</h1>
       <p className="text-[15px] text-muted-ink mb-8">
         Essas informações ajudam a personalizar suas recomendações
@@ -104,6 +105,7 @@ export default function CreateProfile() {
           {saving ? 'Salvando...' : 'Próximo'}
         </motion.button>
       </form>
+      </div>
     </div>
   );
 }

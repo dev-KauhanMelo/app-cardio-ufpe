@@ -123,17 +123,23 @@ export default function Progress() {
         <div className="bg-surface rounded-3xl p-6 mb-4 shadow-sm">
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={data}>
+              <defs>
+                <linearGradient id="barFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor="var(--color-success)" />
+                  <stop offset="100%" stopColor="#059669" />
+                </linearGradient>
+              </defs>
               <XAxis
                 dataKey="day"
                 axisLine={false}
                 tickLine={false}
-                tick={{ fill: '#6B7280', fontSize: 12 }}
+                tick={{ fill: 'var(--color-muted-ink)', fontSize: 12 }}
               />
               <Bar dataKey="value" radius={[8, 8, 0, 0]}>
                 {data.map((entry, index) => (
                   <Cell
                     key={`cell-${index}`}
-                    fill={entry.value > 0 ? '#3B82F6' : '#E5E7EB'}
+                    fill={entry.value > 0 ? 'url(#barFill)' : 'var(--color-border)'}
                   />
                 ))}
               </Bar>
@@ -167,7 +173,10 @@ export default function Progress() {
             <div className="flex-1">
               <div
                 className="text-[32px] font-bold mb-1"
-                style={{ color: (evolutionPercent ?? 0) >= 0 ? '#22C55E' : '#EF4444' }}
+                style={{
+                  color:
+                    (evolutionPercent ?? 0) >= 0 ? 'var(--color-success)' : 'var(--color-danger)',
+                }}
               >
                 {evolutionPercent === null
                   ? '—'

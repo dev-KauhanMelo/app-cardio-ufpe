@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ArrowLeft, Check } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { useAuth } from '../../lib/auth-context';
 import { addExercise } from '../../lib/exercises';
 import { completeChallenge, getExerciseTier } from '../../lib/gamification';
@@ -16,21 +16,13 @@ export default function RegisterExercise() {
   const [exerciseType, setExerciseType] = useState(timerState?.type ?? 'Caminhada');
   const [duration, setDuration] = useState(String(timerState?.minutes ?? 20));
   const [intensity, setIntensity] = useState<'leve' | 'médio' | 'intenso'>('leve');
-  const [showSuccess, setShowSuccess] = useState(false);
-  const [xpAwarded, setXpAwarded] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const intensityOptions = [
-    { value: 'leve', label: 'Leve', emoji: '😊', color: '#22C55E', bg: '#DCFCE7' },
-    { value: 'médio', label: 'Médio', emoji: '😐', color: '#FACC15', bg: '#FEF9C3' },
-    { value: 'intenso', label: 'Intenso', emoji: '❤️', color: '#EF4444', bg: '#FEE2E2' },
-  ];
-
-  const recommendedExercises = [
-    { icon: '🚶', name: 'Caminhada leve' },
-    { icon: '🫁', name: 'Exercício respiratório' },
-    { icon: '🧘', name: 'Alongamento' },
+    { value: 'leve', label: 'Leve', emoji: '😊', color: 'var(--color-success)', bg: 'var(--color-success-soft)' },
+    { value: 'médio', label: 'Médio', emoji: '😐', color: 'var(--color-warning)', bg: 'var(--color-warning-soft)' },
+    { value: 'intenso', label: 'Intenso', emoji: '❤️', color: 'var(--color-danger)', bg: 'var(--color-danger-soft)' },
   ];
 
   const durationMinutes = Number(duration) || 0;
@@ -47,13 +39,19 @@ export default function RegisterExercise() {
         intensity,
       });
       const result = await completeChallenge(user.uid, 'exercise', durationMinutes);
-      setXpAwarded(result.xpAwarded);
-      setShowSuccess(true);
-      setTimeout(() => {
-        navigate('/health', {
-          state: { fromExercise: { type: exerciseType, duration: durationMinutes } },
-        });
-      }, 1200);
+      navigate('/celebrate', {
+        replace: true,
+        state: {
+          kind: 'exercise',
+          exerciseName: exerciseType,
+          minutes: durationMinutes,
+          xpAwarded: result.xpAwarded,
+          streak: result.newStreak,
+          leveledUp: result.leveledUp,
+          newLevel: result.newLevel,
+          fromExercise: { type: exerciseType, duration: durationMinutes },
+        },
+      });
     } catch {
       setError('Não foi possível salvar o exercício. Tente novamente.');
     } finally {
@@ -161,39 +159,8 @@ export default function RegisterExercise() {
         >
           {saving ? 'Salvando...' : 'Salvar Exercício'}
         </motion.button>
-
-        {/* Recommended Exercises */}
-        <div>
-          <h3 className="text-[15px] font-bold text-ink mb-3">
-            Exercícios recomendados
-          </h3>
-          <div className="bg-surface rounded-2xl p-4 space-y-2">
-            {recommendedExercises.map((exercise, index) => (
-              <div key={index} className="flex items-center gap-3 py-1">
-                <span className="text-xl">{exercise.icon}</span>
-                <span className="text-[15px] text-ink">{exercise.name}</span>
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
 
-      {/* Success Toast */}
-      <AnimatePresence>
-        {showSuccess && (
-          <motion.div
-            initial={{ opacity: 0, y: 50 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 50 }}
-            className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-success text-white px-8 py-4 rounded-2xl shadow-2xl flex items-center gap-3"
-          >
-            <Check size={24} strokeWidth={3} />
-            <span className="text-[17px] font-semibold">
-              Exercício salvo!{xpAwarded > 0 ? ` +${xpAwarded} XP` : ''}
-            </span>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </div>
   );
 }

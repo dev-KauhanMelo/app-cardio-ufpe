@@ -29,7 +29,8 @@ export default function NotificationsPermission() {
   };
 
   return (
-    <div className="h-full flex flex-col bg-app-bg px-6 justify-center items-center text-center">
+    <div className="h-full overflow-y-auto bg-app-bg">
+      <div className="min-h-full flex flex-col justify-center items-center text-center px-6 py-10">
       <div className="w-20 h-20 bg-info-soft rounded-full flex items-center justify-center mb-6">
         <Bell size={36} className="text-brand" />
       </div>
@@ -53,6 +54,7 @@ export default function NotificationsPermission() {
       >
         Agora não
       </button>
+      </div>
     </div>
   );
 }

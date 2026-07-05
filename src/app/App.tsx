@@ -18,6 +18,7 @@ import Achievements from './components/Achievements';
 import ExerciseLibrary from './components/ExerciseLibrary';
 import ExerciseDetail from './components/ExerciseDetail';
 import ExerciseTimer from './components/ExerciseTimer';
+import Celebration from './components/Celebration';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function AppRoutes() {
@@ -93,6 +94,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <ExerciseTimer />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/celebrate"
+        element={
+          <ProtectedRoute>
+            <Celebration />
           </ProtectedRoute>
         }
       />

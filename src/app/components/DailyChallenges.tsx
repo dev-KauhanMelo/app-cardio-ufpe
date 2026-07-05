@@ -27,8 +27,11 @@ export default function DailyChallenges({
   const [portions, setPortions] = useState(0);
   const nutritionTier = getNutritionTier(portions);
 
+  const maxExerciseXp = Math.max(...EXERCISE_TIER_TABLE.map((t) => t.xp));
+  const maxNutritionXp = Math.max(...NUTRITION_TIER_TABLE.map((t) => t.xp));
+
   return (
-    <div className="bg-surface rounded-3xl p-6 mb-4 shadow-sm">
+    <div className="bg-surface rounded-3xl p-6 shadow-sm">
       <h2 className="text-[17px] font-bold text-ink mb-4">Desafios de hoje</h2>
 
       <div className="space-y-3">
@@ -36,7 +39,7 @@ export default function DailyChallenges({
         <ChallengeRow
           label="Registrar um exercício"
           entry={challenges.exercise}
-          hint={EXERCISE_TIER_TABLE.map((t) => `${t.label}: +${t.xp} XP`).join(' · ')}
+          hint={`até +${maxExerciseXp} XP`}
           onClick={onExerciseClick}
         />
 
@@ -62,38 +65,38 @@ export default function DailyChallenges({
               <p className={`text-[15px] font-medium ${challenges.nutrition ? 'text-muted-ink line-through' : 'text-ink'}`}>
                 Comer frutas ou vegetais hoje
               </p>
-              <p className="text-[13px] text-muted-ink">
-                {NUTRITION_TIER_TABLE.map((t) => `${t.label}: +${t.xp} XP`).join(' · ')}
-              </p>
+              <p className="text-[13px] text-muted-ink">até +{maxNutritionXp} XP</p>
             </div>
           </div>
 
           {!challenges.nutrition && (
-            <div className="flex items-center gap-3 mt-3 pl-11">
-              <button
-                onClick={() => setPortions((p) => Math.max(0, p - 1))}
-                className="w-9 h-9 rounded-full bg-surface border border-border flex items-center justify-center"
-                aria-label="Diminuir porções"
-              >
-                <Minus size={16} className="text-ink" />
-              </button>
-              <span className="text-[16px] font-bold text-ink text-center">
-                {portions} {portions === 1 ? 'porção' : 'porções'}
-              </span>
-              <button
-                onClick={() => setPortions((p) => Math.min(9, p + 1))}
-                className="w-9 h-9 rounded-full bg-surface border border-border flex items-center justify-center"
-                aria-label="Aumentar porções"
-              >
-                <Plus size={16} className="text-ink" />
-              </button>
+            <div className="mt-3">
+              <div className="flex items-center justify-center gap-4 mb-3">
+                <button
+                  onClick={() => setPortions((p) => Math.max(0, p - 1))}
+                  className="w-11 h-11 shrink-0 rounded-full bg-surface border border-border flex items-center justify-center"
+                  aria-label="Diminuir porções"
+                >
+                  <Minus size={18} className="text-ink" />
+                </button>
+                <span className="text-[16px] font-bold text-ink text-center whitespace-nowrap min-w-24">
+                  {portions} {portions === 1 ? 'porção' : 'porções'}
+                </span>
+                <button
+                  onClick={() => setPortions((p) => Math.min(9, p + 1))}
+                  className="w-11 h-11 shrink-0 rounded-full bg-surface border border-border flex items-center justify-center"
+                  aria-label="Aumentar porções"
+                >
+                  <Plus size={18} className="text-ink" />
+                </button>
+              </div>
               <motion.button
-                whileTap={{ scale: 0.94 }}
+                whileTap={{ scale: 0.96 }}
                 disabled={completing || portions === 0}
                 onClick={() => onCompleteNutrition(portions)}
-                className="ml-auto bg-brand text-white text-[13px] font-semibold px-4 py-2 rounded-xl disabled:opacity-50"
+                className="w-full h-11 bg-brand-light text-white text-[15px] font-semibold rounded-xl disabled:opacity-50"
               >
-                Confirmar {nutritionTier.xp > 0 ? `(+${nutritionTier.xp} XP)` : ''}
+                Confirmar{nutritionTier.xp > 0 ? ` (+${nutritionTier.xp} XP)` : ''}
               </motion.button>
             </div>
           )}
@@ -132,7 +135,7 @@ function ChallengeRow({
         <p className={`text-[15px] font-medium ${done ? 'text-muted-ink line-through' : 'text-ink'}`}>
           {label}
         </p>
-        <p className="text-[13px] text-muted-ink">{done ? `${entry!.tier} · +${entry!.xp} XP` : hint}</p>
+        <p className="text-[13px] text-muted-ink">{done ? `+${entry!.xp} XP` : hint}</p>
       </div>
       {onClick && <ChevronRight size={20} className="text-muted-ink flex-shrink-0" />}
     </Wrapper>

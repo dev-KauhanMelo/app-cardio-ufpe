@@ -1,7 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(code --list-extensions)",
+      "Bash(curl -s -o /dev/null -w \"DailyChallenges.tsx -> %{http_code}\\\\n\" \"http://localhost:5188/src/app/components/DailyChallenges.tsx\")"
+    ],
+    "additionalDirectories": [
+      "/home/k8shii/.claude"
     ]
   }
 }

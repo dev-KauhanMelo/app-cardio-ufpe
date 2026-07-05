@@ -37,13 +37,17 @@ export default function ExerciseTimer() {
   const { id } = useParams();
   const { user } = useAuth();
   const exercise = id ? getExerciseCatalogItem(id) : undefined;
-  const totalSeconds = (exercise?.recommendedMinutes[0] ?? 1) * 60;
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [recMin, recMax] = exercise?.recommendedMinutes ?? [1, 1];
+  const goalMinutes = profile
+    ? Math.min(Math.max(profile.dailyGoalMinutes, recMin), recMax)
+    : recMin;
+  const totalSeconds = goalMinutes * 60;
 
   const [elapsed, setElapsed] = useState(0);
   const [running, setRunning] = useState(false);
   const [celebrating, setCelebrating] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
@@ -88,8 +92,20 @@ export default function ExerciseTimer() {
     const minutes = Math.max(1, Math.round(elapsed / 60));
     try {
       await addExercise(user.uid, { type: exercise.name, duration: minutes, intensity: 'leve' });
-      await completeChallenge(user.uid, 'exercise', minutes);
-      navigate('/health', { state: { fromExercise: { type: exercise.name, duration: minutes } } });
+      const result = await completeChallenge(user.uid, 'exercise', minutes);
+      navigate('/celebrate', {
+        replace: true,
+        state: {
+          kind: 'exercise',
+          exerciseName: exercise.name,
+          minutes,
+          xpAwarded: result.xpAwarded,
+          streak: result.newStreak,
+          leveledUp: result.leveledUp,
+          newLevel: result.newLevel,
+          fromExercise: { type: exercise.name, duration: minutes },
+        },
+      });
     } finally {
       setSaving(false);
     }
@@ -97,7 +113,8 @@ export default function ExerciseTimer() {
 
   if (celebrating) {
     return (
-      <div className="h-full flex flex-col items-center justify-center bg-app-bg px-6">
+      <div className="h-full overflow-y-auto bg-app-bg">
+        <div className="min-h-full flex flex-col items-center justify-center px-6 py-10">
         <Mascot level={profile?.level ?? 1} mood="happy" size={120} />
         <p className="text-[22px] font-extrabold text-ink mt-6 mb-2 text-center">
           Meta atingida! 🎉
@@ -119,20 +136,21 @@ export default function ExerciseTimer() {
         >
           Continuar mais um pouco
         </button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="h-full flex flex-col bg-app-bg">
-      <div className="pt-12 pb-6 px-6">
+    <div className="h-full overflow-y-auto bg-app-bg">
+      <div className="pt-12 pb-4 px-6">
         <button onClick={() => navigate(-1)} className="p-2 -ml-2 mb-4">
           <ArrowLeft size={26} className="text-ink" />
         </button>
         <h1 className="text-[26px] font-extrabold text-ink">{exercise.name}</h1>
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center px-6">
+      <div className="flex flex-col items-center px-6 pb-10">
         <div className="text-6xl mb-4">{exercise.icon}</div>
 
         <p className="text-[48px] font-mono font-bold text-ink mb-2 tabular-nums">

@@ -8,12 +8,12 @@ export default function Welcome() {
   const { user } = useAuth();
 
   return (
-    <div className="relative h-full flex flex-col bg-app-bg px-6 justify-center overflow-hidden">
+    <div className="relative h-full overflow-y-auto bg-app-bg">
       <div
         className="absolute inset-0 opacity-40 pointer-events-none"
         style={{ backgroundImage: 'var(--gradient-blob)' }}
       />
-      <div className="relative text-center">
+      <div className="relative min-h-full flex flex-col justify-center px-6 py-10 text-center">
         <div className="flex justify-center mb-6">
           <Mascot level={1} mood="happy" size={140} />
         </div>

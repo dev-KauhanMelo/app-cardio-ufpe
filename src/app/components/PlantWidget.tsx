@@ -16,9 +16,11 @@ const WEEK_DAYS = ['S', 'T', 'Q', 'Q', 'S', 'S', 'D'];
 export default function PlantWidget({
   profile,
   weekCompletedDays,
+  variant = 'card',
 }: {
   profile: UserProfile;
   weekCompletedDays?: boolean[];
+  variant?: 'card' | 'hero';
 }) {
   const stage = getPlantStage(profile.level);
   const mood = getMascotMood(profile);
@@ -27,7 +29,13 @@ export default function PlantWidget({
   const dashOffset = CIRCUMFERENCE * (1 - progressRatio);
 
   return (
-    <div className="relative overflow-hidden rounded-3xl p-6 mb-4 shadow-sm bg-surface">
+    <div
+      className={
+        variant === 'hero'
+          ? 'relative'
+          : 'relative overflow-hidden rounded-3xl p-6 mb-4 shadow-sm bg-surface'
+      }
+    >
       <div className="relative flex items-center gap-4">
         <div className="relative flex-shrink-0" style={{ width: RING_SIZE, height: RING_SIZE }}>
           <svg width={RING_SIZE} height={RING_SIZE} className="absolute inset-0 -rotate-90">

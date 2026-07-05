@@ -58,7 +58,17 @@ export default function HealthRecord() {
       setXpAwarded(result.xpAwarded);
 
       if (fromExercise) {
-        navigate('/dashboard');
+        navigate('/celebrate', {
+          replace: true,
+          state: {
+            kind: 'day',
+            feeling,
+            xpAwarded: result.xpAwarded,
+            streak: result.newStreak,
+            leveledUp: result.leveledUp,
+            newLevel: result.newLevel,
+          },
+        });
       } else {
         setShowToast(true);
         setTimeout(() => setShowToast(false), 2000);
@@ -89,7 +99,7 @@ export default function HealthRecord() {
           <div className="flex justify-center mb-3">
             <Mascot level={level} mood={feeling ? FEELING_MOOD[feeling] : 'neutral'} size={80} />
           </div>
-          <h2 className="text-[18px] font-bold text-ink mb-4 text-center">
+          <h2 className="text-[22px] font-extrabold text-ink mb-4 text-center leading-snug">
             {fromExercise
               ? `Como você se sentiu na ${fromExercise.type} de ${fromExercise.duration} min?`
               : 'Como você se sentiu hoje?'}

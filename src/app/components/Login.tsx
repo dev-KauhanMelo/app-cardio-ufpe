@@ -43,13 +43,13 @@ export default function Login() {
   };
 
   return (
-    <div className="relative h-full flex flex-col bg-app-bg px-6 justify-center overflow-hidden">
+    <div className="relative h-full overflow-y-auto bg-app-bg">
       <div
         className="absolute inset-0 opacity-40 pointer-events-none"
         style={{ backgroundImage: 'var(--gradient-blob)' }}
       />
 
-      <div className="relative">
+      <div className="relative min-h-full flex flex-col justify-center px-6 py-10">
         <div className="mb-4">
           <Mascot level={1} mood="happy" size={100} />
         </div>

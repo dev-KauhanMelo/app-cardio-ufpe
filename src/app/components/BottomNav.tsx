@@ -31,7 +31,7 @@ export default function BottomNav() {
               whileTap={{ scale: 0.94 }}
               onClick={() => navigate(item.path)}
               className={`flex flex-col items-center gap-1 min-h-16 justify-center px-4 rounded-2xl transition-colors ${
-                isActive ? 'bg-info-soft' : ''
+                isActive ? 'bg-brand-soft' : ''
               }`}
             >
               <Icon
